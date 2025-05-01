@@ -161,6 +161,47 @@ def enviar_resposta(texto):
         })
     except:
         pass
+def verificar_comandos():
+    try:
+        url = f"https://api.telegram.org/bot{TOKEN}/getUpdates"
+        response = requests.get(url)
+        mensagens = response.json().get("result", [])
+        if not mensagens:
+            return
+
+        for msg in mensagens[-3:]:
+            texto = msg.get("message", {}).get("text", "").lower()
+            chat_id = msg.get("message", {}).get("chat", {}).get("id")
+            if str(chat_id) != CHAT_ID:
+                continue
+
+            if texto == "/pausar" and not status.get("pausado"):
+                status["pausado"] = True
+                salvar_status(status)
+                enviar_resposta("⏸️ Bot pausado com sucesso.")
+
+            elif texto == "/retomar" and status.get("pausado"):
+                status["pausado"] = False
+                salvar_status(status)
+                enviar_resposta("▶️ Bot retomado. Sinais serão enviados normalmente.")
+
+            elif texto == "/status":
+                resposta = f"""
+📊 STATUS DO BOT:
+Ativos monitorados: {len(ATIVOS)}
+Modo: {MODO_OPERACAO.upper()}
+Sinais hoje: {status['sinais_enviados']}
+Último sinal: {status['ultimo_sinal'] or "Nenhum ainda"}
+Bot pausado: {"✅ Sim" if status.get("pausado") else "❌ Não"}
+"""
+                enviar_resposta(resposta.strip())
+
+        # ✅ Corrige o problema: marca as mensagens como lidas
+        ultima_update_id = mensagens[-1]["update_id"]
+        requests.get(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": ultima_update_id + 1})
+
+    except Exception as e:
+        logging.error(f"Erro ao verificar comandos: {e}")
 
 def main():
     if not TOKEN or not CHAT_ID or not ALPHA_KEY:
