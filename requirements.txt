@@ -1,4 +1,5 @@
-tradingview_ta
-yfinance
+python-telegram-bot
 requests
+tradingview-ta
+yfinance
 pandas
