@@ -24,15 +24,17 @@ ASSET_CONFIG = {
     "USDJPY": {"screener": "forex", "exchange": "FX_IDC"},
     "USDCHF": {"screener": "forex", "exchange": "FX_IDC"},
     "AUDUSD": {"screener": "forex", "exchange": "FX_IDC"},
-   "BTCUSD": {"screener": "crypto", "exchange": "BINANCE"},
-   "ETHUSD": {"screener": "crypto", "exchange": "BINANCE"},
     "EURJPY": {"screener": "forex", "exchange": "FX_IDC"},
     "GBPJPY": {"screener": "forex", "exchange": "FX_IDC"},
+    "EURGBP": {"screener": "forex", "exchange": "FX_IDC"},
     "NZDUSD": {"screener": "forex", "exchange": "FX_IDC"},
     "USDCAD": {"screener": "forex", "exchange": "FX_IDC"},
-    "EURGBP": {"screener": "forex", "exchange": "FX_IDC"},
-    "USDCNH": {"screener": "forex", "exchange": "FX_IDC"},
-    "XAUUSD": {"screener": "cfd", "exchange": "OANDA"},
+    
+    "BTCUSD": {"screener": "crypto", "exchange": "BINANCE"},
+    "ETHUSD": {"screener": "crypto", "exchange": "BINANCE"},
+    "XRPUSD": {"screener": "crypto", "exchange": "BINANCE"},
+    "LTCUSD": {"screener": "crypto", "exchange": "BINANCE"},
+    "BCHUSD": {"screener": "crypto", "exchange": "BINANCE"},
 }
 ATIVOS = list(ASSET_CONFIG.keys())
 
