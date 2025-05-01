@@ -107,7 +107,6 @@ def main():
         return
 
     logging.info("Bot de sinais Alpha Vantage iniciado.")
-    enviar_sinal("BTCUSD", "COMPRA")  # TESTE FORÇADO
     while True:
         for ativo in ATIVOS:
             logging.info(f"Analisando {ativo}...")
