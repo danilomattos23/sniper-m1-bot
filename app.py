@@ -6,7 +6,7 @@ from tradingview_ta import TA_Handler, Interval, Exchange
 # Configurações do Telegram
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-MODO_OPERACAO = os.getenv("MODO_OPERACAO", "conservador")
+MODO_OPERACAO = os.getenv("MODO_OPERACAO", "agressivo")
 
 # Lista de ativos populares
 ATIVOS = [
