@@ -39,6 +39,7 @@ def salvar_status(status):
         json.dump(status, f)
 
 status = carregar_status()
+
 def enviar_sinal(ativo, direcao):
     if status.get("pausado"):
         logging.info("Bot pausado. Sinal não enviado.")
@@ -116,42 +117,6 @@ def analisar_alpha_vantage(ativo):
     except Exception as e:
         logging.error(f"Erro ao analisar {ativo}: {e}")
         return None
-def verificar_comandos():
-    try:
-        url = f"https://api.telegram.org/bot{TOKEN}/getUpdates"
-        response = requests.get(url)
-        mensagens = response.json().get("result", [])
-        if not mensagens:
-            return
-
-        for msg in mensagens[-3:]:  # Verifica apenas as últimas 3
-            texto = msg.get("message", {}).get("text", "").lower()
-            chat_id = msg.get("message", {}).get("chat", {}).get("id")
-            if str(chat_id) != CHAT_ID:
-                continue
-
-            if texto == "/pausar" and not status.get("pausado"):
-                status["pausado"] = True
-                salvar_status(status)
-                enviar_resposta("⏸️ Bot pausado com sucesso.")
-
-            elif texto == "/retomar" and status.get("pausado"):
-                status["pausado"] = False
-                salvar_status(status)
-                enviar_resposta("▶️ Bot retomado. Sinais serão enviados normalmente.")
-
-            elif texto == "/status":
-                resposta = f"""
-📊 STATUS DO BOT:
-Ativos monitorados: {len(ATIVOS)}
-Modo: {MODO_OPERACAO.upper()}
-Sinais hoje: {status['sinais_enviados']}
-Último sinal: {status['ultimo_sinal'] or "Nenhum ainda"}
-Bot pausado: {"✅ Sim" if status.get("pausado") else "❌ Não"}
-"""
-                enviar_resposta(resposta.strip())
-    except Exception as e:
-        logging.error(f"Erro ao verificar comandos: {e}")
 
 def enviar_resposta(texto):
     try:
@@ -161,6 +126,7 @@ def enviar_resposta(texto):
         })
     except:
         pass
+
 def verificar_comandos():
     try:
         url = f"https://api.telegram.org/bot{TOKEN}/getUpdates"
@@ -196,7 +162,6 @@ Bot pausado: {"✅ Sim" if status.get("pausado") else "❌ Não"}
 """
                 enviar_resposta(resposta.strip())
 
-        # ✅ Corrige o problema: marca as mensagens como lidas
         ultima_update_id = mensagens[-1]["update_id"]
         requests.get(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": ultima_update_id + 1})
 
@@ -211,11 +176,7 @@ def main():
     logging.info("Bot com controle e comandos iniciado.")
 
     while True:
-        verificar_comandos()# Marcar todas as mensagens como lidas
-if mensagens:
-    ultima_update_id = mensagens[-1]["update_id"]
-    requests.get(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": ultima_update_id + 1})
-
+        verificar_comandos()
         if status.get("pausado"):
             logging.info("Bot pausado. Aguardando 30s...")
             time.sleep(30)
@@ -236,4 +197,3 @@ if mensagens:
 
 if __name__ == "__main__":
     main()
-
