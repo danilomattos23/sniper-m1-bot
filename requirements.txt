@@ -1,2 +1,4 @@
 tradingview_ta
+yfinance
 requests
+pandas
