@@ -24,18 +24,19 @@ ASSET_CONFIG = {
     "USDJPY": {"screener": "forex", "exchange": "FX_IDC"},
     "USDCHF": {"screener": "forex", "exchange": "FX_IDC"},
     "AUDUSD": {"screener": "forex", "exchange": "FX_IDC"},
+    "USDCAD": {"screener": "forex", "exchange": "FX_IDC"},
     "EURJPY": {"screener": "forex", "exchange": "FX_IDC"},
     "GBPJPY": {"screener": "forex", "exchange": "FX_IDC"},
-    "EURGBP": {"screener": "forex", "exchange": "FX_IDC"},
+    "AUDJPY": {"screener": "forex", "exchange": "FX_IDC"},
     "NZDUSD": {"screener": "forex", "exchange": "FX_IDC"},
-    "USDCAD": {"screener": "forex", "exchange": "FX_IDC"},
-    
+    "USDTRY": {"screener": "forex", "exchange": "FX_IDC"},
+    "USDZAR": {"screener": "forex", "exchange": "FX_IDC"},
     "BTCUSD": {"screener": "crypto", "exchange": "BINANCE"},
     "ETHUSD": {"screener": "crypto", "exchange": "BINANCE"},
-    "XRPUSD": {"screener": "crypto", "exchange": "BINANCE"},
     "LTCUSD": {"screener": "crypto", "exchange": "BINANCE"},
-    "BCHUSD": {"screener": "crypto", "exchange": "BINANCE"},
+    "XRPUSD": {"screener": "crypto", "exchange": "BINANCE"},
 }
+
 ATIVOS = list(ASSET_CONFIG.keys())
 
 # --- Função para Enviar Sinal no Telegram ---
