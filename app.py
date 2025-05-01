@@ -1,4 +1,3 @@
-
 import os
 import time
 import requests
@@ -27,7 +26,7 @@ TODOS_ATIVOS = [
     "USDTRY", "USDZAR", "USDMXN", "USDNOK", "USDSEK",
     "BTCUSD", "ETHUSD", "LTCUSD", "XRPUSD", "BCHUSD", "SOLUSD", "DOGEUSD"
 ]
-grupos = cycle([TODOS_ATIVOS[:30], TODOS_ATIVOS[30:]])
+grupos = cycle([TODOS_ATIVOS[:len(TODOS_ATIVOS)//2], TODOS_ATIVOS[len(TODOS_ATIVOS)//2:]])
 
 def enviar_sinal(ativo, direcao):
     emojis = {"COMPRA": "📈", "VENDA": "📉"}
@@ -39,12 +38,13 @@ def enviar_sinal(ativo, direcao):
 (Modo: {MODO_OPERACAO.upper()})
 """
     try:
-        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage", params={
+        response = requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage", params={
             "chat_id": CHAT_ID,
             "text": mensagem
         })
+        response.raise_for_status()  # Lança uma exceção para status de erro (4xx ou 5xx)
         logging.info(f"SINAL ENVIADO: {direcao} em {ativo}")
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         logging.error(f"Erro ao enviar sinal para Telegram: {e}")
 
 def analisar_com_tradingview(ativo):
@@ -85,7 +85,7 @@ def analisar_com_yfinance(ativo):
             return None
         close = df["Close"]
         rsi = 100 - (100 / (1 + (close.diff().clip(lower=0).rolling(14).mean() /
-                                close.diff().clip(upper=0).abs().rolling(14).mean())))
+                                     close.diff().clip(upper=0).abs().rolling(14).mean())))
         ema9 = close.ewm(span=9, adjust=False).mean()
         ema21 = close.ewm(span=21, adjust=False).mean()
         if MODO_OPERACAO == "agressivo":
