@@ -1,79 +1,58 @@
+
 import os
 import time
 import requests
-import random
-from tradingview_ta import TA_Handler, Interval
 import logging
+import yfinance as yf
+from tradingview_ta import TA_Handler, Interval
+import pandas as pd
 
-# --- Configurações Iniciais ---
+# Configurações iniciais
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-MODO_OPERACAO = os.getenv("MODO_OPERACAO", "agressivo").lower()
+MODO_OPERACAO = os.getenv("MODO_OPERACAO", "conservador").lower()
 
-ANALYSIS_INTERVAL = Interval.INTERVAL_1_MINUTE
-ASSET_LOOP_DELAY_SECONDS = 2
-FULL_LOOP_DELAY_SECONDS = 30
+INTERVALO = Interval.INTERVAL_1_MINUTE
+DELAY_ENTRE_ATIVOS = 2
+DELAY_CICLO = 30
 
-# --- Setup de Logs ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# --- Lista de Ativos com Exchanges ---
-ASSET_CONFIG = {
-    "EURUSD": {"screener": "forex", "exchange": "FX_IDC"},
-    "GBPUSD": {"screener": "forex", "exchange": "FX_IDC"},
-    "USDJPY": {"screener": "forex", "exchange": "FX_IDC"},
-    "USDCHF": {"screener": "forex", "exchange": "FX_IDC"},
-    "AUDUSD": {"screener": "forex", "exchange": "FX_IDC"},
-    "USDCAD": {"screener": "forex", "exchange": "FX_IDC"},
-    "EURJPY": {"screener": "forex", "exchange": "FX_IDC"},
-    "GBPJPY": {"screener": "forex", "exchange": "FX_IDC"},
-    "AUDJPY": {"screener": "forex", "exchange": "FX_IDC"},
-    "NZDUSD": {"screener": "forex", "exchange": "FX_IDC"},
-    "USDTRY": {"screener": "forex", "exchange": "FX_IDC"},
-    "USDZAR": {"screener": "forex", "exchange": "FX_IDC"},
-    "BTCUSD": {"screener": "crypto", "exchange": "BINANCE"},
-    "ETHUSD": {"screener": "crypto", "exchange": "BINANCE"},
-    "LTCUSD": {"screener": "crypto", "exchange": "BINANCE"},
-    "XRPUSD": {"screener": "crypto", "exchange": "BINANCE"},
-}
+# +60 ativos binários (Forex + Cripto)
+ATIVOS = [
+    "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
+    "EURJPY", "GBPJPY", "AUDJPY", "CADJPY", "CHFJPY", "NZDJPY",
+    "EURAUD", "EURGBP", "EURNZD", "GBPAUD", "GBPCHF", "GBPNZD", "GBPCAD",
+    "USDTRY", "USDZAR", "USDMXN", "USDNOK", "USDSEK",
+    "BTCUSD", "ETHUSD", "LTCUSD", "XRPUSD", "BCHUSD", "SOLUSD", "DOGEUSD"
+]
 
-ATIVOS = list(ASSET_CONFIG.keys())
-
-# --- Função para Enviar Sinal no Telegram ---
 def enviar_sinal(ativo, direcao):
-    if not TOKEN or not CHAT_ID:
-        logging.error("TOKEN ou CHAT_ID não configurados.")
-        return
-
     emojis = {"COMPRA": "📈", "VENDA": "📉"}
-    mensagens = [
-        f"🔥 SINAL FRESQUINHO 🔥\n\n{emojis[direcao]} {direcao} em {ativo}\n⏳ Validade: 1 minuto\nVai nessa que tá bonito 😎",
-        f"🚀 OPORTUNIDADE DE {direcao}!\n\nAtivo: {ativo}\nExpiração: 1min\nTaca o dedo que o sinal é quente 🔥",
-    ]
-    msg = random.choice(mensagens)
+    mensagem = f"""
+🔥 SINAL DETECTADO 🔥
 
+{emojis[direcao]} {direcao} em {ativo}
+⏱️ Validade: 1 minuto
+(Modo: {MODO_OPERACAO.upper()})
+"""
     try:
-        response = requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage", params={
+        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage", params={
             "chat_id": CHAT_ID,
-            "text": msg
-        }, timeout=10)
-        response.raise_for_status()
-        logging.info(f"Sinal de {direcao} para {ativo} enviado com sucesso.")
+            "text": mensagem
+        })
+        logging.info(f"SINAL ENVIADO: {direcao} em {ativo}")
     except Exception as e:
-        logging.error(f"Erro ao enviar sinal: {e}")
+        logging.error(f"Erro ao enviar sinal para Telegram: {e}")
 
-# --- Análise Técnica de Cada Ativo ---
-def analisar_ativo(ativo, config):
-    logging.info(f"Analisando {ativo}...")
-
-    handler = TA_Handler(
-        symbol=ativo,
-        screener=config['screener'],
-        exchange=config['exchange'],
-        interval=ANALYSIS_INTERVAL
-    )
-
+def analisar_com_tradingview(ativo):
     try:
+        handler = TA_Handler(
+            symbol=ativo,
+            screener="crypto" if "USD" in ativo and ativo.startswith(("BTC", "ETH", "XRP", "LTC", "BCH", "DOGE", "SOL")) else "forex",
+            exchange="BINANCE" if "USD" in ativo and ativo.startswith(("BTC", "ETH", "XRP", "LTC", "BCH", "DOGE", "SOL")) else "FX_IDC",
+            interval=INTERVALO
+        )
         analise = handler.get_analysis()
         rsi = analise.indicators.get("RSI")
         ema9 = analise.indicators.get("EMA9")
@@ -81,53 +60,66 @@ def analisar_ativo(ativo, config):
         close = analise.indicators.get("close")
 
         if None in [rsi, ema9, ema21, close]:
-            logging.warning(f"Indicadores incompletos para {ativo}.")
-            return
-
-        sinal = None
+            raise ValueError("Indicadores incompletos")
 
         if MODO_OPERACAO == "agressivo":
             if rsi < 35 and ema9 > ema21:
-                sinal = "COMPRA"
+                return "COMPRA"
             elif rsi > 65 and ema9 < ema21:
-                sinal = "VENDA"
-        elif MODO_OPERACAO == "conservador":
+                return "VENDA"
+        else:
             if rsi < 30 and ema9 > ema21 and close > ema9:
-                sinal = "COMPRA"
+                return "COMPRA"
             elif rsi > 70 and ema9 < ema21 and close < ema9:
-                sinal = "VENDA"
-        else:
-            logging.warning(f"Modo '{MODO_OPERACAO}' inválido. Usando agressivo.")
-            if rsi < 35 and ema9 > ema21:
-                sinal = "COMPRA"
-            elif rsi > 65 and ema9 < ema21:
-                sinal = "VENDA"
-
-        if sinal:
-            logging.info(f"Sinal detectado: {sinal} em {ativo}")
-            enviar_sinal(ativo, sinal)
-        else:
-            logging.debug(f"Nenhum sinal em {ativo}")
-
+                return "VENDA"
     except Exception as e:
-        logging.error(f"Erro ao analisar {ativo}: {e}")
+        logging.warning(f"TradingView falhou para {ativo}: {e}")
+        return None
 
-# --- Loop Principal ---
+def analisar_com_yfinance(ativo):
+    try:
+        yf_ativo = ativo + "=X" if not ativo.startswith("BTC") else ativo + "-USD"
+        df = yf.download(tickers=yf_ativo, period="1d", interval="1m", progress=False)
+        if df.empty or len(df) < 21:
+            return None
+
+        close = df["Close"]
+        rsi = 100 - (100 / (1 + (close.diff().clip(lower=0).rolling(14).mean() /
+                                close.diff().clip(upper=0).abs().rolling(14).mean())))
+        ema9 = close.ewm(span=9, adjust=False).mean()
+        ema21 = close.ewm(span=21, adjust=False).mean()
+
+        if MODO_OPERACAO == "agressivo":
+            if rsi.iloc[-1] < 35 and ema9.iloc[-1] > ema21.iloc[-1]:
+                return "COMPRA"
+            elif rsi.iloc[-1] > 65 and ema9.iloc[-1] < ema21.iloc[-1]:
+                return "VENDA"
+        else:
+            if rsi.iloc[-1] < 30 and ema9.iloc[-1] > ema21.iloc[-1] and close.iloc[-1] > ema9.iloc[-1]:
+                return "COMPRA"
+            elif rsi.iloc[-1] > 70 and ema9.iloc[-1] < ema21.iloc[-1] and close.iloc[-1] < ema9.iloc[-1]:
+                return "VENDA"
+    except Exception as e:
+        logging.warning(f"yFinance falhou para {ativo}: {e}")
+        return None
+
 def main():
     if not TOKEN or not CHAT_ID:
-        logging.critical("TOKEN e CHAT_ID são obrigatórios.")
+        logging.critical("TOKEN e CHAT_ID não configurados.")
         return
 
-    logging.info(f"Iniciando SniperM1 Bot em modo '{MODO_OPERACAO}'")
-
+    logging.info("Bot iniciado com múltiplas fontes de análise.")
     while True:
         for ativo in ATIVOS:
-            config = ASSET_CONFIG[ativo]
-            analisar_ativo(ativo, config)
-            time.sleep(ASSET_LOOP_DELAY_SECONDS)
-
-        logging.info(f"Aguardando {FULL_LOOP_DELAY_SECONDS}s para próximo ciclo...")
-        time.sleep(FULL_LOOP_DELAY_SECONDS)
+            logging.info(f"Analisando {ativo}...")
+            direcao = analisar_com_tradingview(ativo)
+            if not direcao:
+                direcao = analisar_com_yfinance(ativo)
+            if direcao:
+                enviar_sinal(ativo, direcao)
+            time.sleep(DELAY_ENTRE_ATIVOS)
+        logging.info(f"Ciclo completo. Aguardando {DELAY_CICLO}s...")
+        time.sleep(DELAY_CICLO)
 
 if __name__ == "__main__":
     main()
