@@ -13,7 +13,7 @@ ATIVOS = [
     "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "BTCUSD", "ETHUSD",
     "EURJPY", "GBPJPY", "NZDUSD", "USD/CAD", "EURGBP", "USDCNH", "XAUUSD"
 ]
-
+print(f"Analisando {ativo}...")
 def enviar_sinal(ativo, direcao):
     emojis = {
         "COMPRA": "📈",
