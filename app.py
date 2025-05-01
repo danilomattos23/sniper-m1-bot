@@ -170,7 +170,11 @@ def main():
     logging.info("Bot com controle e comandos iniciado.")
 
     while True:
-        verificar_comandos()
+        verificar_comandos()# Marcar todas as mensagens como lidas
+if mensagens:
+    ultima_update_id = mensagens[-1]["update_id"]
+    requests.get(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": ultima_update_id + 1})
+
         if status.get("pausado"):
             logging.info("Bot pausado. Aguardando 30s...")
             time.sleep(30)
