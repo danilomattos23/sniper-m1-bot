@@ -13,8 +13,8 @@ CHAT_ID = os.getenv("CHAT_ID")
 MODO_OPERACAO = os.getenv("MODO_OPERACAO", "conservador").lower()
 
 INTERVALO = Interval.INTERVAL_1_MINUTE
-DELAY_ENTRE_ATIVOS = 2
-DELAY_CICLO = 30
+DELAY_ENTRE_ATIVOS = 5
+DELAY_CICLO = 60
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
