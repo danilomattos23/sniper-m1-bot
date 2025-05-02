@@ -100,3 +100,4 @@ def run_bot():
 # Executa o bot
 if __name__ == "__main__":
     run_bot()
+versão final do bot com comandos funcionando
