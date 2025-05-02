@@ -1,199 +1,102 @@
-import os
-import time
-import requests
+import telebot
 import logging
-import json
-import pandas as pd
-from datetime import datetime
+import time
+# (Importar aqui também as bibliotecas utilizadas para análise de mercado, ex: requests, pandas, yfinance, etc.)
 
 # === Configurações ===
-TOKEN = os.getenv("TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
-ALPHA_KEY = os.getenv("ALPHA_KEY")
-MODO_OPERACAO = os.getenv("MODO_OPERACAO", "conservador").lower()
+TOKEN = "8070231977:AAElIGjY3l9EDZaFTvt3nZ71TO7mBWJ0fX8"
+CHAT_ID = -1002653453559  # ID do grupo SinalBinarioBot
+bot = telebot.TeleBot(TOKEN)
 
-DELAY_ENTRE_ATIVOS = 15
-DELAY_CICLO = 60
-ARQUIVO_STATUS = "status.json"
-
-ATIVOS = [
-    "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
-    "EURJPY", "GBPJPY", "AUDJPY", "CADJPY", "CHFJPY", "NZDJPY",
-    "EURAUD", "EURGBP", "EURNZD", "GBPAUD", "GBPCHF", "GBPNZD", "GBPCAD",
-    "USDTRY", "USDZAR", "USDMXN", "USDNOK", "USDSEK", "AUDCAD", "AUDCHF",
-    "AUDNZD", "CADCHF", "CHFSGD", "EURCAD", "EURCHF", "EURCZK", "EURDKK",
-    "EURHUF", "EURNOK", "EURPLN", "EURSEK", "EURSGD", "EURTRY", "EURZAR",
-    "GBPCAD", "GBPNOK", "GBPSGD", "NZDCAD", "NZDCHF", "NZDSGD", "USDHKD"
-]
-
+# Configuração de logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+logger.info("Bot de sinais Alpha Vantage iniciado.")
 
-def carregar_status():
-    if not os.path.exists(ARQUIVO_STATUS):
-        return {"pausado": False, "sinais_enviados": 0, "ultimo_sinal": None}
-    with open(ARQUIVO_STATUS, "r") as f:
-        return json.load(f)
+# Estado do bot
+status = {"pausado": False}
 
-def salvar_status(status):
-    with open(ARQUIVO_STATUS, "w") as f:
-        json.dump(status, f)
-
-status = carregar_status()
-
-def enviar_sinal(ativo, direcao):
+# === Handlers de Comando ===
+@bot.message_handler(commands=['status'])
+def cmd_status(message):
+    """Responde com o status atual (pausado ou ativo)."""
     if status.get("pausado"):
-        logging.info("Bot pausado. Sinal não enviado.")
-        return
+        bot.reply_to(message, "⏸ Bot pausado no momento. Nenhum sinal está sendo enviado.")
+    else:
+        bot.reply_to(message, "▶ Bot ativo e operando normalmente, enviando sinais.")
 
-    msg = f"""
-🔥 SINAL DETECTADO 🔥
-📊 {direcao} em {ativo}
-⏱️ Validade: 1 minuto
-(Modo: {MODO_OPERACAO.upper()})
-"""
+@bot.message_handler(commands=['pausar'])
+def cmd_pausar(message):
+    """Pausa o envio de sinais."""
+    if not status.get("pausado"):
+        status["pausado"] = True
+        bot.reply_to(message, "✅ Bot pausado! Os sinais estão temporariamente suspensos.")
+        logger.info("Bot pausado via comando /pausar.")
+    else:
+        bot.reply_to(message, "ℹ️ O bot já está pausado.")
+
+@bot.message_handler(commands=['retomar'])
+def cmd_retomar(message):
+    """Retoma o envio de sinais (se estiver pausado)."""
+    if status.get("pausado"):
+        status["pausado"] = False
+        bot.reply_to(message, "✅ Bot retomado! Os sinais voltarão a ser enviados.")
+        logger.info("Bot retomado via comando /retomar.")
+    else:
+        bot.reply_to(message, "▶️ O bot já está ativo enviando sinais.")
+
+# === Funções de análise de mercado (esboço) ===
+def analisar_mercado_e_gerar_sinal(par):
+    """
+    (Exemplo de função de análise)
+    Analisa o ativo 'par' usando fontes de dados (Alpha Vantage, TradingView, etc.)
+    e retorna um texto de sinal se houver alguma condição de trade identificada.
+    Retorna None se não houver sinal para enviar.
+    """
+    sinal_texto = None
     try:
-        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage", params={
-            "chat_id": CHAT_ID,
-            "text": msg
-        })
-        logging.info(f"SINAL ENVIADO: {direcao} em {ativo}")
-        status["sinais_enviados"] += 1
-        status["ultimo_sinal"] = datetime.now().strftime("%H:%M:%S")
-        salvar_status(status)
+        # Pseudocódigo da análise:
+        # dados = obter_dados_alpha_vantage(par)
+        # if not dados: (tenta fonte alternativa)
+        #     dados = obter_dados_tradingview(par)
+        # ... calcular indicadores, identificar sinais ...
+        # if condicao_de_compra:
+        #     sinal_texto = f"🔔 Sinal de COMPRA em {par}!"
+        # elif condicao_de_venda:
+        #     sinal_texto = f"🔔 Sinal de VENDA em {par}!"
+        pass  # lógica real de análise seria implementada aqui
     except Exception as e:
-        logging.error(f"Erro ao enviar sinal: {e}")
+        logger.error(f"Erro na análise de {par}: {e}")
+    return sinal_texto
 
-def analisar_alpha_vantage(ativo):
-    try:
-        url = "https://www.alphavantage.co/query"
-        params = {
-            "function": "FX_INTRADAY",
-            "from_symbol": ativo[:3],
-            "to_symbol": ativo[3:],
-            "interval": "1min",
-            "apikey": ALPHA_KEY,
-            "outputsize": "compact"
-        }
-        response = requests.get(url, params=params)
-        data = response.json()
-
-        if "Time Series FX (1min)" not in data:
-            logging.warning(f"Alpha Vantage sem dados para {ativo}")
-            return None
-
-        df = pd.DataFrame.from_dict(data["Time Series FX (1min)"], orient="index").astype(float)
-        df = df.rename(columns={
-            "1. open": "Open",
-            "2. high": "High",
-            "3. low": "Low",
-            "4. close": "Close"
-        }).sort_index()
-
-        close = df["Close"]
-        if len(close) < 21:
-            return None
-
-        delta = close.diff()
-        gain = delta.clip(lower=0)
-        loss = -delta.clip(upper=0)
-        avg_gain = gain.rolling(14).mean()
-        avg_loss = loss.rolling(14).mean()
-        rs = avg_gain / avg_loss
-        rsi = 100 - (100 / (1 + rs))
-        ema9 = close.ewm(span=9, adjust=False).mean()
-        ema21 = close.ewm(span=21, adjust=False).mean()
-
-        if MODO_OPERACAO == "agressivo":
-            if rsi.iloc[-1] < 35 and ema9.iloc[-1] > ema21.iloc[-1]:
-                return "COMPRA"
-            elif rsi.iloc[-1] > 65 and ema9.iloc[-1] < ema21.iloc[-1]:
-                return "VENDA"
-        else:
-            if rsi.iloc[-1] < 30 and ema9.iloc[-1] > ema21.iloc[-1] and close.iloc[-1] > ema9.iloc[-1]:
-                return "COMPRA"
-            elif rsi.iloc[-1] > 70 and ema9.iloc[-1] < ema21.iloc[-1] and close.iloc[-1] < ema9.iloc[-1]:
-                return "VENDA"
-        return None
-    except Exception as e:
-        logging.error(f"Erro ao analisar {ativo}: {e}")
-        return None
-
-def enviar_resposta(texto):
-    try:
-        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage", params={
-            "chat_id": CHAT_ID,
-            "text": texto
-        })
-    except:
-        pass
-
-def verificar_comandos():
-    try:
-        url = f"https://api.telegram.org/bot{TOKEN}/getUpdates"
-        response = requests.get(url)
-        mensagens = response.json().get("result", [])
-        if not mensagens:
-            return
-
-        for msg in mensagens[-3:]:
-            texto = msg.get("message", {}).get("text", "").lower()
-            chat_id = msg.get("message", {}).get("chat", {}).get("id")
-            if str(chat_id) != CHAT_ID:
-                continue
-
-            if texto == "/pausar" and not status.get("pausado"):
-                status["pausado"] = True
-                salvar_status(status)
-                enviar_resposta("⏸️ Bot pausado com sucesso.")
-
-            elif texto == "/retomar" and status.get("pausado"):
-                status["pausado"] = False
-                salvar_status(status)
-                enviar_resposta("▶️ Bot retomado. Sinais serão enviados normalmente.")
-
-            elif texto == "/status":
-                resposta = f"""
-📊 STATUS DO BOT:
-Ativos monitorados: {len(ATIVOS)}
-Modo: {MODO_OPERACAO.upper()}
-Sinais hoje: {status['sinais_enviados']}
-Último sinal: {status['ultimo_sinal'] or "Nenhum ainda"}
-Bot pausado: {"✅ Sim" if status.get("pausado") else "❌ Não"}
-"""
-                enviar_resposta(resposta.strip())
-
-        ultima_update_id = mensagens[-1]["update_id"]
-        requests.get(f"https://api.telegram.org/bot{TOKEN}/getUpdates", params={"offset": ultima_update_id + 1})
-
-    except Exception as e:
-        logging.error(f"Erro ao verificar comandos: {e}")
-
-def main():
-    if not TOKEN or not CHAT_ID or not ALPHA_KEY:
-        logging.critical("Faltam variáveis de ambiente.")
-        return
-
-    logging.info("Bot com controle e comandos iniciado.")
-
+# === Loop principal de envio de sinais ===
+pairs = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "NZDUSD", "USDCAD", "CADJPY", "CHFJPY"]  # ativos monitorados
+def run_bot():
+    """Inicia o loop contínuo de análise e o polling do Telegram bot."""
+    # Inicia a escuta de comandos em segundo plano
+    bot_thread = telebot.util.ThreadedScheduler()  # utilitário para rodar o bot em thread separada
+    bot_thread.add_job(bot.infinity_polling, interval=0)  # inicia polling não-bloqueante
+    bot_thread.start()
+    logger.info("Monitoramento de comandos iniciado. Iniciando análise periódica de sinais...")
+    # Loop infinito de análise de sinais
     while True:
-        verificar_comandos()
-        if status.get("pausado"):
-            logging.info("Bot pausado. Aguardando 30s...")
-            time.sleep(30)
-            continue
+        for par in pairs:
+            logger.info(f"Analisando {par}...")
+            sinal = analisar_mercado_e_gerar_sinal(par)
+            if sinal:
+                if not status.get("pausado"):
+                    try:
+                        bot.send_message(CHAT_ID, sinal)
+                        logger.info(f"Sinal enviado para {par}: {sinal}")
+                    except Exception as e:
+                        logger.error(f"Erro ao enviar sinal para {par}: {e}")
+                else:
+                    logger.info(f"Sinal gerado para {par}, mas não enviado (bot pausado).")
+            # Aguarda um pouco para evitar sobrecarga nas APIs (rate limiting)
+            time.sleep(5)  # espera 5 segundos entre cada ativo (ajuste conforme necessário)
+        # Aguarda antes do próximo ciclo completo de análise
+        time.sleep(60)  # espera 60 segundos antes de reiniciar a análise de todos os pares
 
-        validos = 0
-        for ativo in ATIVOS:
-            logging.info(f"Analisando {ativo}...")
-            direcao = analisar_alpha_vantage(ativo)
-            if direcao:
-                enviar_sinal(ativo, direcao)
-            else:
-                validos += 1
-            time.sleep(DELAY_ENTRE_ATIVOS)
-
-        logging.info(f"Ciclo finalizado. Ativos válidos: {validos}. Esperando {DELAY_CICLO}s...")
-        time.sleep(DELAY_CICLO)
-
+# Executa o bot
 if __name__ == "__main__":
-    main()
+    run_bot()
